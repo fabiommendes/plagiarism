@@ -1,0 +1,16 @@
+# Cached builds
+__pycache__/
+.cache/
+.idea/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.egg
+*.egg-info/
+
+# Build directories
+doc/_build/
+build/
+dist/
