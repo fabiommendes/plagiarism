@@ -14,3 +14,7 @@ __pycache__/
 doc/_build/
 build/
 dist/
+
+teste.py
+src/plagiarism/data_files/db.sqlite3
+src/plagiarism/data_files/speeches.csv

@@ -1,4 +1,4 @@
-from plagiarism.tokenizers import split_to_words
+from plagiarism.tokenizers import split_words
 
 
 class Token:
@@ -29,7 +29,7 @@ class Token:
 class WordTokenizer:
     def __call__(self, data):
         tok_type = Token.TYPE_WORD
-        for word in split_to_words(data):
+        for word in split_words(data):
             yield Token(word, tok_type)
 
 

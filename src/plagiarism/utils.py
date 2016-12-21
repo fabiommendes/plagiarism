@@ -6,7 +6,7 @@ from math import log
 
 def count_all(documents, method='total'):
     """
-    Return a counter considering all words in all given documents.
+    Return a counter considering all words in all documents.
 
     Args:
         documents:
@@ -26,27 +26,59 @@ def count_all(documents, method='total'):
     """
 
     if method == 'log-doc-freq':
-        counter = count_all('doc-freq')
+        counter = count_all(documents, 'doc-freq')
         counter.update({tok: -log(f) for tok, f in counter.items()})
         return counter
 
     counter = collections.Counter()
     size = len(documents)
     for doc in documents:
-        if method == 'total':
-            for word in doc:
-                counter[word] += 1
+        if method in ['total']:
+            counter.update(count(doc, method))
         elif method == 'doc':
+            used_words = set()
             for word in doc:
-                if word in doc:
+                if word not in used_words:
                     counter[word] += 1
+                    used_words.add(word)
         elif method == 'doc-freq':
+            used_words = set()
             for word in doc:
-                if word in doc:
+                if word not in used_words:
                     counter[word] += 1 / size
+                    used_words.add(word)
         else:
             raise ValueError('invalid method: %r' % method)
     return counter
+
+
+def count(document: collections.Sequence, method='total'):
+    """
+    Count words in document.
+    Args:
+        document:
+            A sequence of words/tokens.
+        method:
+            'total':
+                Counts the total number of each word.
+            'freq':
+                Relative frequency of words.
+
+    Returns:
+        A collections.Counter object.
+
+    """
+
+    if method == 'total':
+        return collections.Counter(document)
+    elif method == 'freq':
+        counter = collections.Counter()
+        inv_size = 1 / len(document)
+        for word in document:
+            counter[word] += inv_size
+        return counter
+    else:
+        raise ValueError('invalid method: %r' % method)
 
 
 def tokens_all(documents):

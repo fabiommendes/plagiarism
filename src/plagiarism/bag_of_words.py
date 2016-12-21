@@ -34,8 +34,6 @@ def bag_of_words(document, method='boolean', weights=None,
             will be converted to a list of stems using the given tokenizer
             function.
         method:
-            Weighting factor used in as the values of the Counter object.
-
             'boolean' (default):
                 Existing tokens receive a value of 1.
             'frequency':
@@ -76,6 +74,23 @@ def bag_of_words(document, method='boolean', weights=None,
 def bag_of_documents(documents, method='weighted', **kwargs):
     """
     Apply bag of words to a set of documents.
+
+    Args:
+        documents:
+            A list of documents
+        method:
+            'weighted' (default):
+                Inverse frequency weighting method. Each coordinate is
+                proportional to the frequency of words weighted by a factor of
+                log(N/doc_frec) where N is the number of documents and doc_freq
+                is the number of documents that contains the word.
+            'boolean':
+                Existing tokens receive a value of 1.
+            'frequency':
+                Weight corresponds to the relative frequency of each tokens
+            'count':
+                Weight corresponds to the number of times the word appears on
+                text.
     """
 
     if method != 'weighted':
@@ -90,40 +105,57 @@ def bag_of_documents(documents, method='weighted', **kwargs):
     return result
 
 
-def vectorize(bag, default=0.0, tokens=None):
+def vectorize(bag_of_documents, default=0.0, tokens=None):
     """
     Convert bag of documents to matrix.
 
     Return:
-         tokens:
+        tokens:
             A list of tokens mapping to their respective indexes.
-         default:
+        default:
             Default value to assign to a token that does not exist on a
             document.
-         matrix:
+        matrix:
             A matrix representing the full bag of documents.
     """
 
-    tokens = tokens or tokens_all(bag)
-    data = [[doc.get(tok, default) for tok in tokens] for doc in bag]
+    tokens = tokens or tokens_all(bag_of_documents)
+    data = [[doc.get(tk, default) for tk in tokens] for doc in bag_of_documents]
     return np.array(data)
 
 
-def similarity_matrix(data, method='triangular', diag=1.0, norm=None):
+def similarity_matrix(matrix, method='triangular', diag=None, norm=None):
     """
     Return the similarity matrix from a matrix.
+
+    Args:
+        matrix:
+            A matrix created by vectorizing all elements.
+        method:
+            Method used to compute the similarity between two vectors. See
+            the :func:`plagiarism.similarity` function.
+        norm:
+            Norm used by the similarity function.
+        diag:
+            The value of the diagonal, similarity of an element with itself.
     """
 
-    size = len(data)
-    if not isinstance(data, np.ndarray):
-        data = vectorize(data)
-    result = np.zeros([size, size], dtype=float) + diag
+    size = len(matrix)
+    if not isinstance(matrix, np.ndarray):
+        matrix = vectorize(matrix)
+    result = np.zeros([size, size], dtype=float)
     for i in range(size):
-        vi = data[i]
+        vi = matrix[i]
         for j in range(i + 1, size):
-            vj = data[j]
+            vj = matrix[j]
             value = similarity(vi, vj, method, norm=norm)
             result[i, j] = result[j, i] = value
+    for i in range(size):
+        if diag is None:
+            u = matrix[i, i]
+            result[i, i] = similarity(u, u, method, norm=norm)
+        else:
+            result[i, i] = diag
     return result
 
 
@@ -134,11 +166,12 @@ class SimilarPair(tuple):
 
     def __new__(cls, a, b, similarity=None, indexes=None):
         new = tuple.__new__(cls, (a, b))
+        new.similarity = similarity
+        new.indexes = indexes
         return new
 
     def __init__(self, a, b, similarity=None, indexes=None):
-        self.similarity = similarity
-        self.indexes = indexes
+        super().__init__()
 
 
 def most_similar(documents, similarity=None, n=None):
@@ -154,7 +187,9 @@ def most_similar(documents, similarity=None, n=None):
             If given, corresponds to the maximum number of elements returned.
 
     Returns:
-        A list of (doc[i], doc[j]) pairs.
+        A list of (doc[i], doc[j]) pairs. Each pair is an instance of a tuple
+        subclass that also have the attributes .similarity (with the similarity
+        value) and .indexes (with a tuple of (i, j) indexes for the pair).
     """
 
     result = []

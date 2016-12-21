@@ -1,7 +1,10 @@
 from functools import lru_cache
+
 from stop_words import LANGUAGE_MAPPING
 
 SUPPORTED_LANGUAGES = list(LANGUAGE_MAPPING) + list(LANGUAGE_MAPPING.values())
+
+__all__ = ['get_stop_words', 'remove_stop_words', 'remove_stop_words_all']
 
 
 @lru_cache(50)
@@ -23,3 +26,40 @@ def get_stop_words(ref=None):
     else:
         raise ValueError('could not understand %r' % ref)
 
+
+def remove_stop_words(document, stop_words='english'):
+    """
+    Remove all stop words in the set from the given document.
+
+    Args:
+        document:
+            a sequence of words/tokens.
+        stop_words:
+            a list of stop words or a name for the stop words set (e.g.:
+            'portuguese')
+
+    Returns:
+        A list of words with the stop words removed.
+    """
+
+    stop_words = _stop_words_set(stop_words)
+    return _remove_stop_words(document, stop_words)
+
+
+def remove_stop_words_all(documents, stop_words='english'):
+    """
+    Apply :func:`remove_stop_words` in all documents in the list of documents.
+    """
+
+    stop_words = _stop_words_set(stop_words)
+    return [_remove_stop_words(doc, stop_words) for doc in documents]
+
+
+def _remove_stop_words(document, stop_words_set):
+    return [tk for tk in document if tk not in stop_words_set]
+
+
+def _stop_words_set(stop_words):
+    if isinstance(stop_words, str):
+        stop_words = get_stop_words(stop_words)
+    return set(stop_words)

@@ -1,16 +1,14 @@
 import scipy
+import scipy.cluster
 
-from plagiarism.bag_of_words import BagOfWordsClassifier
 
-
-def kmeans(job, k, whiten=True):
+def kmeans(data, k, whiten=True):
     """
     Performs a k-means classification for all documents in the given job.
 
     Args:
-        job (list or NPLJob):
-            A list of texts or a natural language processing job (NPLJob)
-            instance.
+        matrix:
+            A list of vectorized documents or matrix.
         k (int):
             The desired number of clusters.
 
@@ -22,10 +20,6 @@ def kmeans(job, k, whiten=True):
             for the i-th document.
     """
 
-    if not isinstance(job, BagOfWordsClassifier):
-        job = BagOfWordsClassifier(job)
-
-    data = job.similarity_matrix()
     std = 1
     if whiten:
         std = data.std(axis=0)

@@ -28,7 +28,10 @@ def test_bag_of_documents(fibo_docs):
 
 def test_common_tokens(fibo_docs):
     toks = tokenize_all(fibo_docs)
-    f = lambda x: sorted([y[0] for y in x])
-    assert f(common_tokens_all(toks, 3)) == ['n', 'x', 'y']
-    assert set(f(common_tokens_all(toks, 10, by_document=True)))\
-        .issuperset(['def', 'n', 'return'])
+    common = common_tokens_all(toks, 4)
+    common = [x for x, n in common]
+    assert sorted(common) == ['1', 'n', 'x', 'y']
+
+    common = common_tokens_all(toks, 10, by_document=True)
+    common = sorted([x for x, n in common if n == 1.0])
+    assert common == ['1', 'def', 'fibo', 'n', 'return']

@@ -1,4 +1,5 @@
 from math import sqrt
+import numpy as np
 
 
 def cos_angle(u, v):
@@ -41,6 +42,14 @@ def similarity(u, v, method=None, norm=None):
         if norm_u == norm_v == 0:
             return 1.0
         return 1 - norm(u - v) / (norm_u + norm_v)
+    elif method == 'hellinger':
+        psi_u = np.sqrt(u)
+        psi_v = np.sqrt(v)
+        dpsi = psi_u - psi_v
+        dpsi *= dpsi
+        return -np.sqrt(dpsi.sum())
+    elif method == 'diff':
+        return -norm(u - v)
     else:
         raise ValueError('invalid similarity method: %r' % method)
 

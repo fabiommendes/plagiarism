@@ -1,5 +1,6 @@
 from plagiarism.bag_of_words import count_all
-from plagiarism.ngrams import optimal_bigrams, ngrams, remove_ngram
+from plagiarism.ngrams import optimal_bigrams, ngrams, remove_ngram, \
+    merge_ngrams, remove_ngrams
 
 
 def test_ngram_simple():
@@ -9,6 +10,11 @@ def test_ngram_simple():
            [('foo', 'bar'), ('bar', 'baz')]
     assert ngrams(['foo', 'bar', 'baz'], 2, join=lambda x: ''.join(x)) == \
            [('foobar'), ('barbaz')]
+
+
+def test_ngrams_acc():
+    assert ngrams(['a', 'b', 'c'], 4, accumulate=True) == \
+           ['a', 'b', 'c', 'a b', 'b c', 'a b c']
 
 
 def test_fibo_unigrams(fibo_doc_tokens):
@@ -38,5 +44,30 @@ def test_fibo_reduced_bigrams(fibo_doc_tokens):
 
 
 def test_remove_ngram():
-    assert remove_ngram(['foo', 'bar', 'ham', 'spam'], ('bar', 'ham'))\
+    assert remove_ngram(['foo', 'bar', 'ham', 'spam'], ('bar', 'ham')) \
            == ['foo', 'spam']
+
+
+def test_remove_ngrams():
+    assert remove_ngrams(['foo', 'bar', 'ham', 'spam', 'eggs'],
+                         [('bar', 'ham'), ('spam', 'eggs'), ('ham', 'spam')]) \
+           == ['foo']
+
+
+def test_merge():
+    ngrams = [('foo', 'bar'), ('foo', 'bar', 'baz'), ('ham', 'spam')]
+    phrase = 'from foo bar baz got foo bar eating ham spam eggs'
+    words = phrase.split()
+    assert merge_ngrams(words, ngrams) == [
+        'from', 'foo bar baz', 'got', 'foo bar', 'eating', 'ham spam', 'eggs'
+    ]
+
+
+def test_merge_ngrams():
+    words = list('abcde')
+    ngrams = [('b', 'c', 'e'), ('c', 'd')]
+    assert merge_ngrams(words, ngrams) == ['a', 'b', 'c d', 'e']
+
+    words = list('abcde')
+    ngrams = [('b', 'c', 'e'), ('b', 'c'), ('c', 'd')]
+    assert merge_ngrams(words, ngrams) == ['a', 'b c', 'd', 'e']

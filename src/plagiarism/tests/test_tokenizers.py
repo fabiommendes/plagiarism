@@ -1,4 +1,5 @@
-from plagiarism.tokenizers import split_python_tokens, split_programming_tokens
+from plagiarism.tokenizers import split_python_tokens, \
+    split_programming_tokens, tokenize, stemmize
 
 
 def test_python_tokens(fibo):
@@ -18,3 +19,15 @@ def test_generic_programming_tokens(fibo):
         'x', ',', 'y', '=', 'y', ',', 'x', '+', 'y',
         'return', 'x'
     ]
+
+
+def test_stemmizer():
+    stems = stemmize('carro andou para rua', language='portuguese')
+    assert stems == ['carr', 'andou', 'rua']
+
+
+def test_split_words():
+    words = tokenize('foo bar. foo, bar!', tokenizer='split-words',
+                     keep_stops=True)
+    assert words == ['foo', 'bar', '.', 'foo', 'bar', '.']
+

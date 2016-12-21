@@ -1,9 +1,97 @@
 import collections
 
-from plagiarism.utils import count_all
+from plagiarism.utils import count_all, count
 
 
-def remove_ngram(words, ngram):
+def ngrams(document, n, sep=' ', join=None, accumulate=False):
+    """
+    Create list of n-grams from given sequence of words.
+
+    Args:
+        words:
+            A document represented by a sequence of tokens.
+        sep:
+            String separator to join components of n-gram.
+        join:
+            A function that receives a tuple and return a n-gram object. If
+            you want to represent n-grams by tuples, pass ``join=tuple``.
+        accumulate:
+            If True, all n-grams lists up to the given n.
+
+    Example:
+        >>> ngrams(['to', 'be', 'or', 'not', 'to', 'be'], 3, sep=' ')
+        ['to be or', 'be or not', 'or not to', 'not to be']
+    """
+
+    join_arg = join
+    if join is None:
+        def join(x):
+            values = map(str, x)
+            return sep.join(values)
+    if accumulate:
+        return _ngrams_acc(document, n, sep, join)
+    if n == 2:
+        if join_arg is tuple:
+            return list(_bigrams(document))
+        elif join_arg is None:
+            return [x + sep + y for (x, y) in _bigrams(document)]
+        else:
+            return list(_bigrams(document, join))
+
+    document = list(document)
+    size = len(document)
+
+    if n == size:
+        return [join(document)]
+    elif n > size:
+        return []
+
+    result = []
+    for i in range(0, size - n + 1):
+        result.append(join(document[i:i + n]))
+    return result
+
+
+# Faster implementation for bigrams
+def _bigrams(document, join=None):
+    it = iter(document)
+    try:
+        x = next(it)
+    except StopIteration:
+        return
+
+    if join is None:
+        for y in it:
+            yield x, y
+            x = y
+    else:
+        for y in it:
+            yield join((x, y))
+            x = y
+
+
+def _ngrams_acc(document, n, sep=None, join=None):
+    """
+    Accumulate n-grams from 1 to n.
+    """
+
+    result = list(document)
+    for i in range(2, n):
+        result.extend(ngrams(document, i, sep, join))
+    return result
+
+
+def ngrams_all(documents, *args, **kwargs):
+    """
+    Like ngrams() function, but expects a list of documents.
+
+    Accepts the same arguments as ngrams().
+    """
+
+    return [ngrams(doc, *args, **kwargs) for doc in documents]
+
+
+def remove_ngram(document, ngram):
     """
     Return list with all occurrences of n-gram removed.
 
@@ -14,18 +102,130 @@ def remove_ngram(words, ngram):
 
     n = len(ngram)
     result = []
-    iterations = len(words) - n
+    iterations = len(document) - n
     idx = 0
     while idx <= iterations:
         for j, word in enumerate(ngram):
-            if word != words[idx + j]:
-                result.append(words[idx])
+            if word != document[idx + j]:
+                result.append(document[idx])
                 break
         else:
             idx += n - 1
         idx += 1
-    result.extend(words[idx:])
+    result.extend(document[idx:])
     return result
+
+
+def remove_ngrams(document, ngrams):
+    """
+    Like :func:`remove_ngram`, but remove all ngrams from list.
+    """
+
+    join = lambda x: x
+    ngrams = hierarchical_ngrams(ngrams)
+    return _merge_ngrams_worker(document, ngrams, join, True)
+
+
+def merge_ngrams(document, ngrams, join=None):
+    """
+    Given a list of tokens and a list of valid n-grams, return a new version
+    of the document in which every possible ngram in the list is merged.
+
+    Args:
+        document:
+        ngrams:
+
+    Returns:
+
+    """
+
+    join = join or (lambda x: ' '.join(x))
+    ngrams = hierarchical_ngrams(ngrams)
+    return _merge_ngrams_worker(document, ngrams, join)
+
+
+def _merge_ngrams_worker(document, ngrams, join, remove=False):
+    pending = collections.deque(document)
+    done = []
+    while pending:
+        ngram = []
+        node = ngrams
+        while pending and pending[0] in node:
+            word = pending.popleft()
+            ngram.append(word)
+            node = node[word]
+        if ... not in node:
+            pending.extendleft(reversed(ngram))
+            ngram = []
+
+        if ngram:
+            if not remove:
+                done.append(join(ngram))
+        else:
+            done.append(pending.popleft())
+    return done
+
+
+def merge_ngrams_all(documents, ngrams, join=None):
+    """
+    Apply :func:`merge_ngrams` to all documents in the list.
+    """
+
+    join = join or (lambda x: ' '.join(x))
+    ngrams = hierarchical_ngrams(ngrams)
+    return [_merge_ngrams_worker(doc, ngrams, join) for doc in documents]
+
+
+def hierarchical_ngrams(ngrams):
+    """
+    Transform a list of ngrams in a three mapping each sequential word to the
+    ngrams related to that word. Each n-gram is saved in the '...' node of
+    the tree.
+
+    This structure makes it easier to localize possible ngrams candidates from
+    a sequence of words.
+
+    Args:
+        ngrams: list of ngram tuples
+
+    Returns:
+        An hierarchical tree made from dictionaries.
+
+    Examples:
+        Consider the list
+
+        >>> ngrams = [('foo', 'bar'), ('foo', 'bar', 'baz'), ('ham', 'spam')]
+
+        This function produces a tree equivalent to the following::
+
+            {
+                'foo': {
+                    'bar': {
+                        ...: ('foo', 'bar'),
+                        'baz': {
+                            ...: ('foo', 'bar', baz'),
+                        },
+                    }
+                },
+                'ham': {
+                    'spam': {
+                        ...: ('ham', 'spam'),
+                    },
+                },
+            }
+
+    """
+    tree = {}
+    for ngram in ngrams:
+        node = tree
+        for word in ngram:
+            try:
+                node = node[word]
+            except KeyError:
+                node[word] = new = {}
+                node = new
+        node[...] = ngram
+    return tree
 
 
 def optimal_bigrams(documents, iter=1, **kwargs):
@@ -154,65 +354,102 @@ def optimal_bigrams(documents, iter=1, **kwargs):
     return result
 
 
-def ngrams(document, n, sep=' ', join=None, accumulate=False):
+def find_bigrams(document, min_repetitions=2):
     """
-    Create list of n-grams from given sequence of words.
+    Finds all bi-grams
 
     Args:
-        words:
-            A document represented by a sequence of tokens.
-        sep:
-            String separator to join components of n-gram.
-        join:
-            A function that receives a tuple and return a n-gram object. If
-            you want to represent n-grams by tuples, pass ``join=tuple``.
-        accumulate:
-            If True, all n-grams lists up to the given n.
+        document: a list of words/tokens.
 
-    Example:
-        >>> ngrams(['to', 'be', 'or', 'not', 'to', 'be'], 3, sep=' ')
-        ['to be or', 'be or not', 'or not to', 'not to be']
+    Returns:
+        A list of bigrams generated from document.
     """
 
-    if join is None:
-        def join(x):
-            values = map(str, x)
-            return sep.join(values)
-    if accumulate:
-        return _ngrams_acc(document, n, sep, join)
+    accepted_bigrams = []
+    new_bigrams = True
 
-    document = list(document)
-    size = len(document)
+    while new_bigrams:
+        new_bigrams = []
+        bigrams = ngrams(document, 2, join=tuple)
+        w1_count = collections.Counter()
+        w2_count = collections.Counter()
+        for bigram in bigrams:
+            w1, w2 = bigram
+            w1_count[w1] += 1
+            w2_count[w2] += 1
 
-    if n == size:
-        return [join(document)]
-    elif n > size:
-        return []
+        used_first_words = set()
+        used_second_words = set()
 
-    result = []
-    for i in range(0, size - n + 1):
-        result.append(join(document[i:i + n]))
-    return result
+        data = (
+            (N, w1_count[w1] - N, w2_count[w2] - N, w1, w2)
+            for (w1, w2), N in count(bigrams).items() if N >= min_repetitions
+        )
+
+        def key(x):
+            return -x[0], min(x[1], x[2]), max(x[1], x[2]), x[3], x[4]
+
+        data = sorted(data, key=key)
+        for N, neg_w1, neg_w2, w1, w2 in data:
+            if w1 in used_second_words or w2 in used_first_words:
+                continue
+
+            if N > neg_w1 or N > neg_w2:
+                new_bigrams.append((w1, w2))
+                used_first_words.add(w1)
+                used_second_words.add(w2)
+
+        document = remove_ngrams(document, new_bigrams)
+        accepted_bigrams.extend(new_bigrams)
+
+    return accepted_bigrams
 
 
-def _ngrams_acc(words, n, sep=None, join=None):
+def find_ngrams(document, verbose=False, min_repetitions=2, max_iter=None):
     """
-    Accumulate n-grams from 1 to n.
+    Compute a list of useful ngrams for document.
     """
 
-    result = list(words)
-    for i in range(2, n):
-        result.extend(ngrams(words, i, sep, join))
-    return result
+    bigrams = True
+    iter = 0
+    max_iter = float('inf') if max_iter is None else max_iter
+    if verbose:
+        print('finding bigrams in document with %s words' % len(document))
+
+    while bigrams:
+        iter += 1
+        if iter > max_iter:
+            break
+        bigrams = find_bigrams(document, min_repetitions=min_repetitions)
+        document = merge_ngrams(document, bigrams)
+        if verbose:
+            fmt = iter, len(bigrams), len(document)
+            print('iter: %3d, %5d new bigrams, %7d tokens in document.' % fmt)
+    ngrams = {tuple(x.split()) for x in document if ' ' in x}
+    return ngrams
 
 
-def ngrams_all(documents, *args, **kwargs):
+def save_ngrams(ngrams, file):
     """
-    Like ngrams() function, but expects a list of documents.
+    Save ngrams in the given file.
 
-    Accepts the same arguments as ngrams().
+    Args:
+        ngrams: list of ngrams
+        file: file name
     """
+    with open(file, 'w') as F:
+        for ngram in ngrams:
+            F.write(' '.join(ngram))
+            F.write('\n')
 
-    return [ngrams(doc, *args, **kwargs) for doc in documents]
 
+def load_ngrams(file):
+    """
+    Load ngrams saved with save_ngrams() from the given file.
+    """
+    ngrams = []
+    with open(file) as F:
+        for line in F:
+            ngrams.append(line.split())
+    return ngrams
 

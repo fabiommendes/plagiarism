@@ -1,6 +1,6 @@
 import re
 import string
-import tokenize
+import tokenize as _tokenize
 from Stemmer import Stemmer, algorithms as _stemmer_algorithms
 from collections import deque
 from functools import lru_cache
@@ -11,30 +11,101 @@ from plagiarism.stopwords import get_stop_words
 from plagiarism.text import strip_punctuation
 
 __all__ = [
-    'split_to_words', 'stemmize', 'split_programming_tokens',
-    'split_python_tokens'
+    'split_words', 'stemmize', 'split_programming_tokens',
+    'split_python_tokens', 'tokenize', 'tokenize_all',
 ]
 
+PUNCTUATION_TABLE = str.maketrans({
+    c: ' ' for c in string.punctuation
+})
+STOP_SIGNS_TABLE = str.maketrans({
+    c: '.' for c in '.!?'
+})
+PUNCTUATION_TABLE_NO_STOP_SIGN = str.maketrans({
+    c: ' ' for c in string.punctuation.replace('.', '')
+})
 
-KEEP_LETTERS_TABLE = {
-    i: ' '
-    for i in range(1, 256)
-    if chr(i) not in string.ascii_letters
-    }
 
-
-@lru_cache(maxsize=50)
-def get_stemmer(language=None):
+def tokenize(text, tokenizer=None, **kwargs):
     """
-    Return stemmer for given language.
+    Common interface to all tokenizers.
 
-    The default language is english.
+    Args:
+        text:
+            Text to tokenize.
+        tokenizer:
+            A tokenizer function or function name.
+        **kwargs:
+            Extra arguments passed to the tokenizer.
+
+    Valid tokenize methods are:
+        'words': :func:`split_to_words`
+        'split-words': :func:`split_to_words`
+        'python': :func:`split_python_tokens`
+        'python-tokens': :func:`split_python_tokens`
+        'split-python-tokens': :func:`split_python_tokens`
+        'code': :func:`split_programming_tokens`
+        'programming': :func:`split_programming_tokens`
+        'programming-tokens': :func:`split_programming_tokens`
+        'split-programming-tokens': :func:`split_programming_tokens`
+        'stemmize': :func:`stemmize`
+    """
+    if not callable(tokenizer):
+        tokenizer = tokenizer or 'words'
+        tokenizer = TOKENIZER_DICT[tokenizer.replace('_', '-')]
+    return tokenizer(text, **kwargs)
+
+
+def tokenize_all(documents, tokenizer=None, **kwargs):
+    """
+    Tokenize a sequence of documents.
+
+    Args:
+        documents:
+            List of documents
+        tokenizer:
+            Tokenizer function or function name.
+        **kwargs:
+            Extra arguments passed to the tokenizer function.
+
+    See also:
+        :func:`tokenize`.
     """
 
-    return Stemmer(language or 'english')
+    if not callable(tokenizer):
+        tokenizer = tokenizer or 'words'
+        tokenizer = TOKENIZER_DICT[tokenizer.replace('_', '-')]
+    return [tokenizer(doc, **kwargs) for doc in documents]
 
 
-def split_to_words(text, casefold=True):
+def stemmize(text, language=None, stop_words=None):
+    """
+    Receive a string of text and return a list of stems.
+
+    Args:
+        text (str):
+            A string of text to stemmize.
+        language:
+            Default language for stemmer and stop words.
+        stop_words:
+            A list of stop words. Set to False if you don't want to include the
+            default list of stop words for the given language.
+    """
+
+    stemmer = get_stemmer(language)
+    words = split_words(text)
+    words = stemmer.stemWords(words)
+    if stop_words is False:
+        return words
+    if stop_words is None:
+        stop_words = get_stop_words(language)
+    else:
+        stop_words = get_stop_words(stop_words)
+    stop_stems = set(stemmer.stemWords(stop_words))
+    return [word for word in words if word not in stop_stems]
+
+
+def split_words(text, casefold=True, keep_stops=False):
     """
     Convert text in a sequence of case-folded tokens.
 
@@ -43,40 +114,14 @@ def split_to_words(text, casefold=True):
 
     if casefold:
         text = text.casefold()
-    text = text.translate(KEEP_LETTERS_TABLE)
-    return text.split()
 
-
-def stemmize(text, language=None, stop_words=None, ngrams=1):
-    """
-    Receive a string of text and return a list of stems.
-
-    Args:
-        text (str):
-            A string of text to stemize.
-        language:
-            Default language for stemmer and stop words.
-        stop_words (list):
-            List of stop tokens.
-        ngrams (int):
-            If given, uses n-grams instead of tokens.
-    """
-    stemmer = get_stemmer(language)
-
-    if stop_words is None:
-        stop_words = get_stop_words(language)
-    stop_stems = set(stemmer.stemWords(stop_words))
-    words = text.casefold().split()
-    words = stemmer.stemWords([strip_punctuation(word) for word in words])
-    data = [w for w in words if w and w not in stop_stems]
-    if ngrams == 1:
-        return data
+    if keep_stops:
+        text = text.translate(STOP_SIGNS_TABLE)
+        text = text.replace('.', ' . ')
+        text = text.translate(PUNCTUATION_TABLE_NO_STOP_SIGN)
     else:
-        result = []
-        for i in range(len(data) - ngrams + 1):
-            words = data[i:i + ngrams]
-            result.append(' '.join(words))
-        return result
+        text = text.translate(PUNCTUATION_TABLE)
+    return text.split()
 
 
 def split_python_tokens(text, exclude=('ENCODING',)):
@@ -120,11 +165,11 @@ def split_programming_tokens(text):
                    r'''"""[^"\\]*(?:\\.[^"\\]*)*""")'''),
 
         # Numbers
-        re.compile(tokenize.Number),
+        re.compile(_tokenize.Number),
 
         # Names and decorators
-        re.compile(tokenize.Name),
-        re.compile('@' + tokenize.Name),
+        re.compile(_tokenize.Name),
+        re.compile('@' + _tokenize.Name),
     ]
     tokens = []
     lines = deque(text.splitlines())
@@ -165,27 +210,19 @@ def split_programming_tokens(text):
     return [tok for tok in tokens if tok and not tok.isspace()]
 
 
-def tokenize_all(documents, tokenizer=None, **kwargs):
+@lru_cache(maxsize=50)
+def get_stemmer(language=None):
     """
-    Tokenize a sequence of documents.
+    Return stemmer for given language.
 
-    Args:
-        documents:
-            List of documents
-        tokenizer:
-            Tokenizer function or function name.
-        **kwargs:
-            Extra arguments passed to the tokenizer function.
+    The default language is english.
     """
 
-    if not callable(tokenizer):
-        tokenizer = tokenizer or 'words'
-        tokenizer = TOKENIZER_DICT[tokenizer.replace('_', '-')]
-    return [tokenizer(doc, **kwargs) for doc in documents]
+    return Stemmer(language or 'english')
 
 TOKENIZER_DICT = {
-    'words': split_to_words,
-    'split-to-words': split_to_words,
+    'words': split_words,
+    'split-words': split_words,
     'python': split_python_tokens,
     'python-tokens': split_python_tokens,
     'split-python-tokens': split_python_tokens,

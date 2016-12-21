@@ -6,7 +6,7 @@ import scipy as sp
 import scipy.cluster.vq
 
 from plagiarism.stopwords import get_stop_words
-from plagiarism.tokenizers import split_to_words
+from plagiarism.tokenizers import split_words
 from plagiarism.tokens import CodeTokenizer
 
 
@@ -98,7 +98,7 @@ class TextDocument(Document):
         Remove all extra whitespace, punctuations, digits, etc.
         """
 
-        return split_to_words(self.data)
+        return split_words(self.data)
 
     def mean_segment_size(self, segments=None):
         """
