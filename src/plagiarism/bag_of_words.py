@@ -94,10 +94,11 @@ def bag_of_documents(documents, method='weighted', **kwargs):
                 text.
     """
 
-    if method != 'weighted':
+    if 'weighted' not in method:
         return [bag_of_words(doc, method=method, **kwargs) for doc in documents]
 
-    bag = bag_of_documents(documents, method='frequency', **kwargs)
+    method, _, _ = method.rpartition('-')
+    bag = bag_of_documents(documents, method=method or 'frequency', **kwargs)
     weights = count_all(documents, method='log-doc-freq')
     result = []
     for counter in bag:
