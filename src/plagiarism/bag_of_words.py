@@ -1,5 +1,6 @@
 from collections import Counter
 
+import collections
 import numpy as np
 
 from plagiarism.math_utils import similarity
@@ -145,7 +146,7 @@ def unvectorize(matrix, tokens, single=False):
         matrix = [matrix]
     result = []
     for vec in matrix:
-        bag = dict(zip(tokens, vec))
+        bag = collections.Counter(dict(zip(tokens, vec)))
         result.append(bag)
     if single:
         return result[0]
