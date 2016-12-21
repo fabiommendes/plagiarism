@@ -11,7 +11,7 @@ from plagiarism.input import ask, yn_input, do_print, no_print, clear
 from plagiarism.ngrams import optimal_bigrams
 from plagiarism.text import text_diff, two_column
 from plagiarism.tokenizers import tokenize_all
-from plagiarism.utils import tokens_all, timeit
+from plagiarism.utils import sorted_tokens_all, timeit
 
 suspect_result = collections.namedtuple('SuspectResult',
     field_names=['documents', 'similar_pairs', 'similarity_matrix', 'tokens']
@@ -72,7 +72,7 @@ def find_suspects(documents=None, tokenizer='code', verbose=False,
     # Tokenize documents
     with timeit() as dt:
         tokenized = tokenize_all(document_list, tokenizer=tokenizer)
-        tokens = tokens_all(tokenized)
+        tokens = sorted_tokens_all(tokenized)
         info('%s tokens found.' % len(tokens))
 
     # Creating ngrams
@@ -80,7 +80,7 @@ def find_suspects(documents=None, tokenizer='code', verbose=False,
         tokenized = optimal_bigrams(tokenized, 1,
                                     accumulate=accumulate,
                                     allow_superposition=False)
-        tokens = tokens_all(tokenized)
+        tokens = sorted_tokens_all(tokenized)
         info('Using %s unique n-grams. (%es)' % (len(tokens), dt))
 
     # Bag of words

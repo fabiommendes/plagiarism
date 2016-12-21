@@ -81,7 +81,7 @@ def count(document: collections.Sequence, method='total'):
         raise ValueError('invalid method: %r' % method)
 
 
-def tokens_all(documents):
+def sorted_tokens_all(documents):
     """
     Return a list of tokens from all documents.
     """

@@ -4,7 +4,7 @@ import numpy as np
 
 from plagiarism.math_utils import similarity
 from plagiarism.tokenizers import stemmize
-from plagiarism.utils import count_all, tokens_all
+from plagiarism.utils import count_all, sorted_tokens_all
 
 
 def apply_weights(counter, weights, default=1):
@@ -119,9 +119,37 @@ def vectorize(bag_of_documents, default=0.0, tokens=None):
             A matrix representing the full bag of documents.
     """
 
-    tokens = tokens or tokens_all(bag_of_documents)
+    tokens = tokens or sorted_tokens_all(bag_of_documents)
     data = [[doc.get(tk, default) for tk in tokens] for doc in bag_of_documents]
     return np.array(data)
+
+
+def unvectorize(matrix, tokens, single=False):
+    """
+    Revert the effect of the vectorize function.
+
+    Args:
+        matrix:
+            A matrix of vectorized elements.
+        tokens:
+            A sorted list of tokens. Usually obtained by calling
+            :func:`sorted_tokens_all(bag_of_documents)`.
+        single (bool):
+            True to unvectorize a single vector (default is False).
+
+    Returns:
+        A list of bags.
+    """
+
+    if single:
+        matrix = [matrix]
+    result = []
+    for vec in matrix:
+        bag = dict(zip(tokens, vec))
+        result.append(bag)
+    if single:
+        return result[0]
+    return result
 
 
 def similarity_matrix(matrix, method='triangular', diag=None, norm=None):
