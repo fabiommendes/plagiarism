@@ -2,6 +2,12 @@ import collections
 
 from plagiarism.utils import count_all, count
 
+__all__ = [
+    'ngrams', 'ngrams_all', 'remove_ngram', 'remove_ngrams', 'merge_ngrams',
+    'merge_ngrams_all', 'hierarchical_ngrams', 'load_ngrams', 'save_ngrams',
+    'find_ngrams', 'find_bigrams',
+]
+
 
 def ngrams(document, n, sep=' ', join=None, accumulate=False):
     """
@@ -452,4 +458,3 @@ def load_ngrams(file):
         for line in F:
             ngrams.append(line.split())
     return ngrams
-

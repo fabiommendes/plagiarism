@@ -1,30 +1,22 @@
+import collections
 from collections import Counter
 
-import collections
 import numpy as np
+from math import log
 
+from plagiarism import compute_weights
 from plagiarism.math_utils import similarity
 from plagiarism.tokenizers import stemmize
 from plagiarism.utils import count_all, sorted_tokens_all
+from plagiarism.weigths import apply_weights
+
+__all__ = [
+    'bag_of_words', 'bag_of_documents', 'vectorize', 'unvectorize',
+    'similarity_matrix', 'SimilarPair', 'most_similar', 'common_tokens_all',
+]
 
 
-def apply_weights(counter, weights, default=1):
-    """
-    Apply weights on counter object.
-
-    Args:
-        counter:
-            A map between tokens to frequencies.
-        weights:
-            A map of tokens to their respective weights.
-        default:
-            Default weight.
-    """
-    return Counter({stem: weights.get(stem, default) * freq
-                    for (stem, freq) in counter.items()})
-
-
-def bag_of_words(document, method='boolean', weights=None,
+def bag_of_words(document, method='boolean', weights=None, func=None,
                  tokenizer=None, **kwargs):
     """
     Convert a text to a Counter object.
@@ -35,15 +27,15 @@ def bag_of_words(document, method='boolean', weights=None,
             will be converted to a list of stems using the given tokenizer
             function.
         method:
-            'boolean' (default):
+            'boolean', 'bool' (default):
                 Existing tokens receive a value of 1.
-            'frequency':
+            'frequency', 'freq':
                 Weight corresponds to the relative frequency of each tokens
             'count':
                 Weight corresponds to the number of times the word appears on
                 text.
-            'weighted':
-                Inverse frequency weighting method.
+        func (callable):
+            If given, a function to apply to each result.
         weights:
             Weights given to each component of the bag of words. If must be
             a dictionary and if token is not present in dictionary, the weight
@@ -58,21 +50,28 @@ def bag_of_words(document, method='boolean', weights=None,
         document = tokenizer(document, **kwargs)
     count = Counter(document)
 
-    if method == 'boolean':
-        return Counter({stem: 1 for stem in count})
-    elif method == 'frequency':
+    if method in ('boolean', 'bool'):
+        result = Counter({stem: 1 for stem in count})
+    elif method in ('frequency', 'freq'):
         total = sum(count.values())
-        return Counter({stem: n / total for (stem, n) in count.items()})
+        result = Counter({stem: n / total for (stem, n) in count.items()})
+    elif method in ('log-frequency', 'log-freq'):
+        total = sum(count.values())
+        result = Counter({stem: log(n / total) for (stem, n) in count.items()})
     elif method == 'count':
-        return count
-    elif method == 'weighted':
-        counter = bag_of_words(document, 'frequency')
-        return apply_weights(counter, weights)
+        result = count
     else:
         raise ValueError('invalid method: %r' % method)
 
+    if func:
+        for k, v in result.items():
+            result[k] = func(v)
+    if weights:
+        result = apply_weights(result, weights)
+    return result
 
-def bag_of_documents(documents, method='weighted', **kwargs):
+
+def bag_of_documents(documents, method='weighted', weights=None, **kwargs):
     """
     Apply bag of words to a set of documents.
 
@@ -83,33 +82,29 @@ def bag_of_documents(documents, method='weighted', **kwargs):
             'weighted' (default):
                 Inverse frequency weighting method. Each coordinate is
                 proportional to the frequency of words weighted by a factor of
-                log(N/doc_frec) where N is the number of documents and doc_freq
+                log(N/doc_freq) where N is the number of documents and doc_freq
                 is the number of documents that contains the word.
-            'boolean':
-                Existing tokens receive a value of 1.
-            'frequency':
-                Weight corresponds to the relative frequency of each tokens
-            'count':
-                Weight corresponds to the number of times the word appears on
-                text.
+            + all methods accepted by :func:`bag_of_words`.
     """
 
-    if 'weighted' not in method:
-        return [bag_of_words(doc, method=method, **kwargs) for doc in documents]
+    if weights and isinstance(weights, str):
+        weights = compute_weights(documents, method=weights)
 
-    method, _, _ = method.rpartition('-')
-    bag = bag_of_documents(documents, method=method or 'frequency', **kwargs)
-    weights = count_all(documents, method='log-doc-freq')
-    result = []
-    for counter in bag:
-        new = apply_weights(counter, weights)
-        result.append(new)
-    return result
+    if 'weighted' in method:
+        if weights:
+            raise ValueError('cannot specify weights with method %r' % method)
+        method, _, _ = method.rpartition('-')
+        method = method or 'frequency'
+        weights = compute_weights(documents, method='log-df')
+
+    if weights:
+        kwargs['weights'] = weights
+    return [bag_of_words(doc, method=method, **kwargs) for doc in documents]
 
 
-def vectorize(bag_of_documents, default=0.0, tokens=None):
+def vectorize(bags, default=0.0, tokens=None):
     """
-    Convert bag of documents to matrix.
+    Convert a list of bag of words to matrix form.
 
     Return:
         tokens:
@@ -121,8 +116,8 @@ def vectorize(bag_of_documents, default=0.0, tokens=None):
             A matrix representing the full bag of documents.
     """
 
-    tokens = tokens or sorted_tokens_all(bag_of_documents)
-    data = [[doc.get(tk, default) for tk in tokens] for doc in bag_of_documents]
+    tokens = tokens or sorted_tokens_all(bags)
+    data = [[bag.get(tk, default) for tk in tokens] for bag in bags]
     return np.array(data)
 
 
@@ -241,8 +236,8 @@ def most_similar(documents, similarity=None, n=None):
 
 def common_tokens_all(documents, n=None, by_document=False):
     """
-    Return a list of (token, frequency) pairs for the the n-th most common
-    tokens.
+    Return a list of (token, relative frequency) pairs for the the n-th most
+    common tokens.
     """
 
     counter = Counter()

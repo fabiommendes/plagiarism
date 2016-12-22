@@ -15,6 +15,7 @@ doc/_build/
 build/
 dist/
 
+prof
 teste.py
 src/plagiarism/data_files/db.sqlite3
 src/plagiarism/data_files/speeches.csv

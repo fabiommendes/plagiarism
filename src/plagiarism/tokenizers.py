@@ -40,15 +40,9 @@ def tokenize(text, tokenizer=None, **kwargs):
 
     Valid tokenize methods are:
         'words': :func:`split_to_words`
-        'split-words': :func:`split_to_words`
         'python': :func:`split_python_tokens`
-        'python-tokens': :func:`split_python_tokens`
-        'split-python-tokens': :func:`split_python_tokens`
         'code': :func:`split_programming_tokens`
-        'programming': :func:`split_programming_tokens`
-        'programming-tokens': :func:`split_programming_tokens`
-        'split-programming-tokens': :func:`split_programming_tokens`
-        'stemmize': :func:`stemmize`
+        'stems': :func:`stemmize`
     """
     if not callable(tokenizer):
         tokenizer = tokenizer or 'words'
@@ -231,6 +225,7 @@ TOKENIZER_DICT = {
     'programming-tokens': split_programming_tokens,
     'split-programming-tokens': split_programming_tokens,
     'stemmize': stemmize,
+    'stems': stemmize,
 }
 
 # Language support

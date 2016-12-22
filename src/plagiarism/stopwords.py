@@ -4,7 +4,10 @@ from stop_words import LANGUAGE_MAPPING
 
 SUPPORTED_LANGUAGES = list(LANGUAGE_MAPPING) + list(LANGUAGE_MAPPING.values())
 
-__all__ = ['get_stop_words', 'remove_stop_words', 'remove_stop_words_all']
+__all__ = [
+    'get_stop_words', 'remove_stop_words', 'remove_stop_words_all',
+    'remove_unique_tokens'
+]
 
 
 @lru_cache(50)
@@ -63,3 +66,29 @@ def _stop_words_set(stop_words):
     if isinstance(stop_words, str):
         stop_words = get_stop_words(stop_words)
     return set(stop_words)
+
+
+def remove_unique_tokens(documents):
+    """
+    Return a copy of documents with all tokens that appear only in a single
+    document removed.
+    """
+
+    documents = [list(doc) for doc in documents]
+    whitelist = set()
+    blacklist = {}
+
+    for doc in documents:
+        tokens = set(doc)
+        for tk in tokens:
+            if tk in whitelist:
+                continue
+            if tk in blacklist:
+                blacklist.pop(tk)
+                whitelist.add(tk)
+            blacklist[tk] = doc
+
+    for tk, doc in blacklist.items():
+        doc[:] = [x for x in doc if x != tk]
+
+    return documents
