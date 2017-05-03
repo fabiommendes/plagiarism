@@ -93,8 +93,6 @@ def stemmize(text, language=None, stop_words=None):
         return words
     if stop_words is None:
         stop_words = get_stop_words(language)
-    else:
-        stop_words = get_stop_words(stop_words)
     stop_stems = set(stemmer.stemWords(stop_words))
     return [word for word in words if word not in stop_stems]
 
